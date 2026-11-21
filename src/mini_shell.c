@@ -1,9 +1,15 @@
+
+#define _POSIX_C_SOURCE 200809L
+
 #include "mini_shell.h"
 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 int main(void) {
     char* line = nullptr;
@@ -19,8 +25,23 @@ int main(void) {
 
         // erro de aloc ou vazio
         if (args == nullptr || args[0] == nullptr) {
+            free(args);
+            args = nullptr;
+
+            free(line);
+            line = nullptr;
             continue;
         }
+        if (strcmp(args[0], "exit") == 0) {
+            free(args);
+            args = nullptr;
+
+            free(line);
+            line = nullptr;
+            break;
+        }
+
+        execute(args);
 
         free(args);
         args = nullptr;
@@ -88,4 +109,20 @@ int main(void) {
     }
     tokens[count] = nullptr;
     return tokens;
+}
+
+void execute(char** args) {
+    pid_t pid = fork();
+    if (pid < 0) {  // falha ao criar
+        perror("Error fork");
+    } else if (pid == 0) {      // exec dentro processo filho
+        execvp(args[0], args);  // rodar outro comando sem encerrar o programa pai
+
+        // Só chega aqui se o execvp falhar
+        perror("Error execvp");
+        _exit(EXIT_FAILURE);
+
+    } else {                       // exec dentro process pai
+        waitpid(pid, nullptr, 0);  // guarda o filho terminar
+    }
 }
